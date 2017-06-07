@@ -7,6 +7,7 @@ shinyUI(fluidPage(
   sidebarLayout(
     sidebarPanel(
     #box(title = strong("Settings"), width=4, status="primary",
+        p("Upload a CSV. Temperature column should be called 'temp', and precipitation should be 'precip'. You can have any number of columns with output variables."),
         fileInput('file', 'Choose file to upload',
           accept = c(
             'text/csv',
@@ -17,7 +18,7 @@ shinyUI(fluidPage(
             '.tsv'
           )
         ),
-        actionButton('use-demo-data', "Use demo data instead"),
+        actionButton('useDemoData', "Use demo data instead"),
         checkboxInput('fileOpt', "Show advanced file options", TRUE),
         tags$hr(),
         conditionalPanel(
@@ -37,19 +38,16 @@ shinyUI(fluidPage(
         ), # conditionalPanel close
 
         uiOutput('outputColumnControls'),
-
-        radioButtons('scaleType',
-          'Evaluation Type',
-          c('Continuous' = 'continuous', 'Binary' = 'binary'),
-          selected = 'continuous',
-          inline = TRUE),
-
-        sliderInput('midpoint', 'Midpoint', min = 40, max = 100, value = 80, round = TRUE),
-        sliderInput('binaryThreshold', 'Threshold', min = 40, max = 100, value = 80, round = TRUE)
+        uiOutput('rangeControls'),
+        uiOutput('scaleOption'),
+        uiOutput('midpointAndThresholdControls'),
+        uiOutput('ascendingOption'),
+        uiOutput('axisTitleControls'),
+        uiOutput('saveButton')
     ), # close box
 
     mainPanel(
-      tableOutput('plot')
+      plotOutput('plot')
     )
   )
 ))
