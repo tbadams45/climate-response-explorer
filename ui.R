@@ -18,7 +18,6 @@ shinyUI(fluidPage(
             '.tsv'
           )
         ),
-        actionButton('useDemoData', "Use demo data instead"),
         checkboxInput('fileOpt', "Show advanced file options", TRUE),
         tags$hr(),
         conditionalPanel(
@@ -38,11 +37,12 @@ shinyUI(fluidPage(
         ), # conditionalPanel close
 
         uiOutput('outputColumnControls'),
-        uiOutput('rangeControls'),
         uiOutput('scaleOption'),
-        uiOutput('midpointAndThresholdControls'),
+        uiOutput('rangeControls'),
+        uiOutput('evalTypeSpecificControls'),
         uiOutput('ascendingOption'),
-        uiOutput('axisTitleControls'),
+        uiOutput('formatAsPercentageControls'),
+        uiOutput('titleControls'),
         uiOutput('saveButton')
     ), # close box
 

@@ -2,62 +2,71 @@ source('global.R')
 
 shinyServer(function(input, output, session) {
   data <- reactive({
-    # temp <- input$useDemoData
-    input$file
 
-    # if(temp > actionButtonVal()) {
-    #   csv <- read.csv('data/stresstest_ffd.csv', header = TRUE,
-    #            sep = ',', quote = '"')
-    #   actionButtonVal(temp)
-    #   updateCheckboxInput(session, 'fileOpt', value = FALSE)
-    # }
-    # else {
-      inFile <- input$file
+    inFile <- input$file
 
-      if (is.null(inFile)) {
-        return(NULL)
-      }
+    if (is.null(inFile)) {
+      return(NULL)
+    }
 
-      csv <- read.csv(inFile$datapath, header = input$header,
-        sep = input$sep, quote = input$quote)
+    csv <- read.csv(inFile$datapath, header = input$header,
+      sep = input$sep, quote = input$quote)
 
-      updateCheckboxInput(session, 'fileOpt', value = FALSE)
-    # }
+    updateCheckboxInput(session, 'fileOpt', value = FALSE)
     csv
   })
 
-
-  # data <- eventReactive(input$useDemoData,{
-  #    csv <- read.csv('data/stresstest_ffd.csv', header = TRUE,
-  #      sep = ',', quote = '"')
-  #    head(csv)
-  #    csv
-  # })
-
   plot <- reactive({
-    input$useDemoData # take dependency on button
     inFile <- input$file
 
     if (is.null(input$outputColumns) ||
-        #is.null(input$binaryThreshold) ||
         is.null(input$isContinuousScale) ||
-        #is.null(input$midpoint) ||
         is.null(input$rangeMin) ||
-        is.null(input$midOrThreshold) ||
         is.null(input$ascending) ||
+        is.null(input$bins) ||
+        is.null(input$toPercentX) ||
+        is.null(input$toPercentY) ||
         is.null(input$rangeMax)) {
       return(NULL)
     }
 
-    temp_plot <- climate_heatmap(
-      data(),
-      metric = input$outputColumns,
-      threshold = as.numeric(input$midOrThreshold),
-      binary = !as.logical(input$isContinuousScale),
-      ascending = input$ascending,
-      midpoint = input$midOrThreshold,
-      range = c(input$rangeMin, input$rangeMax)
-    )
+    if(input$isContinuousScale == TRUE) {
+      bins <- as.numeric(unlist(strsplit(input$bins, split=",")))
+
+      if(input$colors != ''){
+        colors <- unlist(strsplit(input$colors, split=","))
+      } else {
+        colors <- NULL
+      }
+
+      temp_plot <- climate_heatmap_continuous(
+        data(),
+        metric = input$outputColumns,
+        bins = bins,
+        ascending = input$ascending,
+        range = c(input$rangeMin, input$rangeMax),
+        colors = colors,
+        to_percent = c(input$toPercentX, input$toPercentY),
+        z_axis_title = input$zAxisTitle
+      )
+
+    } else {
+      if(input$colors != ''){
+        colors <- unlist(strsplit(input$colors, split=","))
+      } else {
+        colors <- NULL
+      }
+
+      temp_plot <- climate_heatmap_binary(
+        data(),
+        metric = input$outputColumns,
+        threshold = as.numeric(input$threshold),
+        ascending = input$ascending,
+        color_scale = colors,
+        to_percent = c(input$toPercentX, input$toPercentY),
+        z_axis_name = input$zAxisTitle
+      )
+    }
 
     if(input$xAxisUnits == "%") {
       xLab <- paste(input$xAxisTitle, " (%)")
@@ -86,7 +95,8 @@ shinyServer(function(input, output, session) {
   })
 
   output$rangeControls <- renderUI({
-    if(is.null(input$outputColumns)) {
+    if(is.null(input$outputColumns) ||
+        input$isContinuousScale == FALSE) {
       return(NULL)
     }
     selected <- data()[input$outputColumns]
@@ -98,7 +108,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$scaleOption <- renderUI({
-    if(is.null(data())) {
+    if (is.null(data())) {
       return(NULL)
     }
     radioButtons('isContinuousScale',
@@ -108,25 +118,38 @@ shinyServer(function(input, output, session) {
       inline = TRUE)
   })
 
-  output$midpointAndThresholdControls <- renderUI({
+  output$evalTypeSpecificControls <- renderUI({
     if(is.null(data()) ||
        is.null(input$rangeMin) ||
        is.null(input$rangeMax)) {
       return(NULL)
     }
 
-    if(input$isContinuousScale == TRUE) {
-      sliderInput('midOrThreshold', 'Midpoint', min = input$rangeMin, max = input$rangeMax,
-        value = (input$rangeMax + input$rangeMin) / 2, round = TRUE)
+    if (input$isContinuousScale == TRUE) {
+      tagList(
+        textInput('bins', 'Bins (e.g. 7, or 20, 30, 40, 50 for bins [20,30], (30,40], (40,50])',
+                    value = "7"),
+        textInput('colors', 'Custom colors (e.g. #EF8A62,#F7F7F7,#67A9CF). Must equal number of bins',
+                  value = '')
+      )
     }
     else {
-      sliderInput('midOrThreshold', 'Threshold', min = input$rangeMin, max = input$rangeMax,
-        value = (input$rangeMax + input$rangeMin) / 2, round = TRUE)
+      selected <- data()[input$outputColumns]
+
+      rangeMin <- floor(min(selected))
+      rangeMax <- ceiling(max(selected))
+
+      tagList(
+        sliderInput('threshold', 'Threshold', min = rangeMin, max = rangeMax,
+          value = (rangeMax + rangeMin) / 2, round = TRUE),
+        textInput('colors', 'Custom colors (e.g. #2E2ECC,#CC2E2E). Must have 2 colors',
+          value = '')
+      )
     }
   })
 
   output$saveButton <- renderUI({
-    if(is.null(data())) {
+    if (is.null(data())) {
       return(NULL)
     }
     actionButton('save', 'Save Plot')
@@ -139,7 +162,17 @@ shinyServer(function(input, output, session) {
     checkboxInput('ascending', 'Ascending', value = TRUE)
   })
 
-  output$axisTitleControls <- renderUI({
+  output$formatAsPercentageControls <- renderUI({
+    if(is.null(data())) {
+      return(NULL)
+    }
+    tagList(
+      checkboxInput('toPercentX', "Format temp as percentage change", value = FALSE),
+      checkboxInput('toPercentY', "Format precip as percentage change", value = TRUE)
+    )
+  })
+
+  output$titleControls <- renderUI({
     if(is.null(data())) {
       return(NULL)
     }
@@ -148,7 +181,8 @@ shinyServer(function(input, output, session) {
       selectInput('xAxisUnits', 'X Axis Units', choices = c("Fahrenheit" = "F", "Celsius" = "C", "%")),
       textInput('yAxisTitle', 'Y Axis Name', value = 'Precipitaton Change'),
       textInput('yAxisUnits', 'Y Axis Units', value = "%"),
-      numericInput('textSize', 'Text Size', value = 20, min = 6, max = 100)
+      numericInput('textSize', 'Text Size', value = 20, min = 6, max = 100),
+      textInput('zAxisTitle', 'Z Axis Title', value = "Range")
     )
   })
 
