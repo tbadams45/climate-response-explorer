@@ -64,7 +64,7 @@ shinyServer(function(input, output, session) {
         ascending = input$ascending,
         color_scale = colors,
         to_percent = c(input$toPercentX, input$toPercentY),
-        z_axis_name = input$zAxisTitle
+        z_axis_title = input$zAxisTitle
       )
     }
 
